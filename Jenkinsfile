@@ -4,6 +4,7 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID      = "778813324501"
         AWS_DEFAULT_REGION  = "us-west-2"
+
         ECR_BACKEND_URI     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-backend"
         ECR_FRONTEND_URI    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-frontend"
 
@@ -22,9 +23,9 @@ pipeline {
                         withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \\
-                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
-                                -Dsonar.sources=. \\
-                                -Dsonar.login=${SONAR_TOKEN}
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                                    -Dsonar.sources=. \\
+                                    -Dsonar.login=${SONAR_TOKEN}
                             """
                         }
                     }
@@ -44,8 +45,8 @@ pipeline {
                     echo "Scanning Backend image with Trivy..."
                     sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${BACKEND_IMAGE_NAME}:${env.BUILD_ID}"
 
-                    echo "Scan passed. Pushing Backend image to ECR..."
-                    docker.withRegistry("https://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", 'ecr:us-east-1:aws-credentials') {
+                    echo "Pushing Backend image to ECR..."
+                    docker.withRegistry("https://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", 'aws-credentials') {
                         backendImage.push()
                         backendImage.push("latest")
                     }
@@ -61,8 +62,8 @@ pipeline {
                     echo "Scanning Frontend image with Trivy..."
                     sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${FRONTEND_IMAGE_NAME}:${env.BUILD_ID}"
 
-                    echo "Scan passed. Pushing Frontend image to ECR..."
-                    docker.withRegistry("https://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", 'ecr:us-east-1:aws-credentials') {
+                    echo "Pushing Frontend image to ECR..."
+                    docker.withRegistry("https://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", 'aws-credentials') {
                         frontendImage.push()
                         frontendImage.push("latest")
                     }
@@ -70,7 +71,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Backend to App Tier') {
+        stage('Deploy Backend via SSM') {
             steps {
                 withCredentials([string(credentialsId: 'mongo-db-uri', variable: 'MONGO_URI')]) {
                     script {
@@ -86,12 +87,12 @@ pipeline {
                         """
 
                         sh """
-                            aws ssm send-command \
-                                --document-name "AWS-RunShellScript" \
-                                --targets "Key=tag:Role,Values=AppServer" \
-                                --comment "Deploy backend container" \
-                                --parameters commands=["${backendCommand.replaceAll('"', '\\\\\\"')}"] \
-                                --region ${AWS_DEFAULT_REGION} \
+                            aws ssm send-command \\
+                                --document-name "AWS-RunShellScript" \\
+                                --targets "Key=tag:Role,Values=AppServer" \\
+                                --comment "Deploy backend" \\
+                                --parameters commands=["${backendCommand.replaceAll('"', '\\\\\\"')}"] \\
+                                --region ${AWS_DEFAULT_REGION} \\
                                 --output text
                         """
                     }
@@ -99,7 +100,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Frontend to Web Tier') {
+        stage('Deploy Frontend via SSM') {
             steps {
                 script {
                     def frontendCommand = """
@@ -107,16 +108,18 @@ pipeline {
                         docker pull ${ECR_FRONTEND_URI}:latest &&
                         docker stop e-shop-frontend || true &&
                         docker rm e-shop-frontend || true &&
-                        docker run -d --name e-shop-frontend --restart always -p 80:80 ${ECR_FRONTEND_URI}:latest
+                        docker run -d --name e-shop-frontend --restart always \\
+                            -p 80:80 \\
+                            ${ECR_FRONTEND_URI}:latest
                     """
 
                     sh """
-                        aws ssm send-command \
-                            --document-name "AWS-RunShellScript" \
-                            --targets "Key=tag:Role,Values=WebServer" \
-                            --comment "Deploy frontend container" \
-                            --parameters commands=["${frontendCommand.replaceAll('"', '\\\\\\"')}"] \
-                            --region ${AWS_DEFAULT_REGION} \
+                        aws ssm send-command \\
+                            --document-name "AWS-RunShellScript" \\
+                            --targets "Key=tag:Role,Values=WebServer" \\
+                            --comment "Deploy frontend" \\
+                            --parameters commands=["${frontendCommand.replaceAll('"', '\\\\\\"')}"] \\
+                            --region ${AWS_DEFAULT_REGION} \\
                             --output text
                     """
                 }
@@ -126,7 +129,7 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished.'
+            echo '✅ Pipeline completed.'
             cleanWs()
         }
     }
