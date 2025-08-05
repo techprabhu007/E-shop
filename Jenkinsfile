@@ -2,22 +2,18 @@ pipeline {
     agent any
 
     tools {
-        // SonarQube Scanner configured in Jenkins
-        'hudson.plugins.sonar.SonarRunnerInstallation': 'sonar-scanner-5'
+        sonarQubeScanner 'SonarQubeScanner'
     }
 
     environment {
-        // AWS & ECR Configuration
         AWS_ACCOUNT_ID      = "778813324501"
         AWS_DEFAULT_REGION  = "us-west-2"
         ECR_BACKEND_URI     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-backend"
         ECR_FRONTEND_URI    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-frontend"
 
-        // SonarQube Configuration
         SONAR_HOST_URL      = "http://localhost:9000/"
         SONAR_PROJECT_KEY   = "e-shop-project"
 
-        // Image Names
         BACKEND_IMAGE_NAME  = "e-shop-backend"
         FRONTEND_IMAGE_NAME = "e-shop-frontend"
     }
@@ -27,13 +23,13 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     script {
-                        def scannerHome = tool 'sonar-scanner-5'
+                        def scannerHome = tool 'SonarQubeScanner'
                         withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                             sh """
-                                ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                -Dsonar.sources=. \
-                                -Dsonar.host.url=${SONAR_HOST_URL} \
+                                ${scannerHome}/bin/sonar-scanner \\
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                                -Dsonar.sources=. \\
+                                -Dsonar.host.url=${SONAR_HOST_URL} \\
                                 -Dsonar.login=${SONAR_TOKEN}
                             """
                         }
