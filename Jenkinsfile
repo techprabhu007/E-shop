@@ -7,7 +7,7 @@ pipeline {
         ECR_BACKEND_URI     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-backend"
         ECR_FRONTEND_URI    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-frontend"
 
-        SONAR_HOST_URL      = "http://localhost:9000/"
+        SONAR_HOST_URL      = "http://sonarqube:9000"
         SONAR_PROJECT_KEY   = "e-shop-project"
 
         BACKEND_IMAGE_NAME  = "e-shop-backend"
