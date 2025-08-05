@@ -8,34 +8,34 @@ pipeline {
         ECR_BACKEND_URI     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-backend"
         ECR_FRONTEND_URI    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-frontend"
 
-        // SONAR_PROJECT_KEY   = "e-shop-project"
+        SONAR_PROJECT_KEY   = "e-shop-project"
 
         BACKEND_IMAGE_NAME  = "e-shop-backend"
         FRONTEND_IMAGE_NAME = "e-shop-frontend"
     }
 
     stages {
-        // stage('SonarQube Code Analysis') {
-        //     steps {
-        //         withSonarQubeEnv('SonarQube') {
-        //             script {
-        //                 def scannerHome = tool 'SonarQubeScanner'
-        //                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-        //                     sh """
-        //                         ${scannerHome}/bin/sonar-scanner \\
-        //                             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
-        //                             -Dsonar.sources=. \\
-        //                             -Dsonar.login=${SONAR_TOKEN}
-        //                     """
-        //                 }
-        //             }
-        //         }
+        stage('SonarQube Code Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    script {
+                        def scannerHome = tool 'SonarQubeScanner'
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \\
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                                    -Dsonar.sources=. \\
+                                    -Dsonar.login=${SONAR_TOKEN}
+                            """
+                        }
+                    }
+                }
 
-        //         timeout(time: 10, unit: 'MINUTES') {
-        //             waitForQualityGate abortPipeline: true
-        //         }
-        //     }
-        // }
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
         stage('Build, Scan & Push Backend Image') {
             steps {
@@ -134,3 +134,4 @@ pipeline {
         }
     }
 }
+
