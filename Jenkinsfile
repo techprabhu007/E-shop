@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        sonarQubeScanner 'SonarQubeScanner'
-    }
-
     environment {
         AWS_ACCOUNT_ID      = "778813324501"
         AWS_DEFAULT_REGION  = "us-west-2"
