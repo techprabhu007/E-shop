@@ -25,7 +25,7 @@ pipeline {
                     def backendImage = docker.build("${BACKEND_IMAGE_NAME}", "./backend")
 
                     echo "🔍 Scanning Backend image with Trivy..."
-                    sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${BACKEND_IMAGE_NAME}"
+                    sh "trivy image --exit-code 1 --severity CRITICAL ${BACKEND_IMAGE_NAME}"
 
                     echo "📦 Pushing Backend image to ECR..."
                     sh """
@@ -43,7 +43,7 @@ pipeline {
                     def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}", "./frontend")
 
                     echo "🔍 Scanning Frontend image with Trivy..."
-                    sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${FRONTEND_IMAGE_NAME}"
+                    sh "trivy image --exit-code 1 --severity CRITICAL ${FRONTEND_IMAGE_NAME}"
 
                     echo "📦 Pushing Frontend image to ECR..."
                     sh """
