@@ -1,6 +1,5 @@
 # Stage 1: Use the official Node.js LTS (Long-Term Support) version
-FROM node:18
-
+FROM node:18-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
