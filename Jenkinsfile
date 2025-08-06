@@ -55,34 +55,34 @@ pipeline {
             }
         }
 
-        stage('Deploy Backend via SSM') {
-            steps {
-                withCredentials([string(credentialsId: 'mongo-db-uri', variable: 'MONGO_URI')]) {
-                    script {
-                        def backendCommand = """
-                            aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com &&
-                            docker pull ${ECR_BACKEND_URI}:latest &&
-                            docker stop e-shop-backend || true &&
-                            docker rm e-shop-backend || true &&
-                            docker run -d --name e-shop-backend --restart always \\
-                                -p 5000:5000 \\
-                                -e MONGO_URI='${MONGO_URI}' \\
-                                ${ECR_BACKEND_URI}:latest
-                        """
+        // stage('Deploy Backend via SSM') {
+        //     steps {
+        //         withCredentials([string(credentialsId: 'mongo-db-uri', variable: 'MONGO_URI')]) {
+        //             script {
+        //                 def backendCommand = """
+        //                     aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com &&
+        //                     docker pull ${ECR_BACKEND_URI}:latest &&
+        //                     docker stop e-shop-backend || true &&
+        //                     docker rm e-shop-backend || true &&
+        //                     docker run -d --name e-shop-backend --restart always \\
+        //                         -p 5000:5000 \\
+        //                         -e MONGO_URI='${MONGO_URI}' \\
+        //                         ${ECR_BACKEND_URI}:latest
+        //                 """
 
-                        sh """
-                            aws ssm send-command \\
-                                --document-name "AWS-RunShellScript" \\
-                                --targets "Key=tag:Role,Values=AppServer" \\
-                                --comment "Deploy backend" \\
-                                --parameters commands=["${backendCommand.replaceAll('"', '\\\\\\"')}"] \\
-                                --region ${AWS_DEFAULT_REGION} \\
-                                --output text
-                        """
-                    }
-                }
-            }
-        }
+        //                 sh """
+        //                     aws ssm send-command \\
+        //                         --document-name "AWS-RunShellScript" \\
+        //                         --targets "Key=tag:Role,Values=AppServer" \\
+        //                         --comment "Deploy backend" \\
+        //                         --parameters commands=["${backendCommand.replaceAll('"', '\\\\\\"')}"] \\
+        //                         --region ${AWS_DEFAULT_REGION} \\
+        //                         --output text
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
 
     //     stage('Deploy Frontend via SSM') {
     //         steps {
