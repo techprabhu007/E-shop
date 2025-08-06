@@ -25,7 +25,7 @@ pipeline {
         stage('Build, Scan & Push Backend Image') {
             steps {
                 script {
-                    def backendImage = docker.build("${BACKEND_IMAGE_NAME}:${BUILD_ID}", "./backend")
+                    def backendImage = docker.build("${BACKEND_IMAGE_NAME}:${BUILD_ID}", "/backend")
 
                     echo "🔍 Scanning Backend image with Trivy..."
                     sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${BACKEND_IMAGE_NAME}:${BUILD_ID}"
@@ -45,7 +45,7 @@ pipeline {
         stage('Build, Scan & Push Frontend Image') {
             steps {
                 script {
-                    def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}:${BUILD_ID}", "./frontend")
+                    def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}:${BUILD_ID}", "/frontend")
 
                     echo "🔍 Scanning Frontend image with Trivy..."
                     sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${FRONTEND_IMAGE_NAME}:${BUILD_ID}"
