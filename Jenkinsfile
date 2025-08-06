@@ -37,23 +37,23 @@ pipeline {
             }
         }
 
-        stage('Build, Scan & Push Frontend Image') {
-            steps {
-                script {
-                    def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}", "./frontend")
+        // stage('Build, Scan & Push Frontend Image') {
+        //     steps {
+        //         script {
+        //             def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}", "./frontend")
 
-                    echo "🔍 Scanning Frontend image with Trivy..."
-                    sh "trivy image --exit-code 1 --severity CRITICAL ${FRONTEND_IMAGE_NAME}"
+        //             echo "🔍 Scanning Frontend image with Trivy..."
+        //             sh "trivy image --exit-code 1 --severity CRITICAL ${FRONTEND_IMAGE_NAME}"
 
-                    echo "📦 Pushing Frontend image to ECR..."
-                    sh """
-                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
-                        docker tag ${FRONTEND_IMAGE_NAME} ${ECR_FRONTEND_URI}:latest
-                        docker push ${ECR_FRONTEND_URI}:latest
-                    """
-                }
-            }
-        }
+        //             echo "📦 Pushing Frontend image to ECR..."
+        //             sh """
+        //                 aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+        //                 docker tag ${FRONTEND_IMAGE_NAME} ${ECR_FRONTEND_URI}:latest
+        //                 docker push ${ECR_FRONTEND_URI}:latest
+        //             """
+        //         }
+        //     }
+        // }
 
         // stage('Deploy Backend via SSM') {
         //     steps {
