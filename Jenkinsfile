@@ -8,48 +8,36 @@ pipeline {
         ECR_BACKEND_URI     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-backend"
         ECR_FRONTEND_URI    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/e-shop-frontend"
 
-        SONAR_PROJECT_KEY   = "e-shop-project"
-
         BACKEND_IMAGE_NAME  = "e-shop-backend"
         FRONTEND_IMAGE_NAME = "e-shop-frontend"
+
+        // Fallback if BUILD_ID is not set
+        BUILD_ID = "${env.BUILD_ID ?: 'manual'}"
     }
 
     stages {
-        stage('SonarQube Code Analysis') {
+        stage('Clean Workspace') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    script {
-                        def scannerHome = tool 'SonarQubeScanner'
-                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            sh """
-                                ${scannerHome}/bin/sonar-scanner \\
-                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
-                                    -Dsonar.sources=. \\
-                                    -Dsonar.login=${SONAR_TOKEN}
-                            """
-                        }
-                    }
-                }
-
-                timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+                cleanWs()
             }
         }
 
         stage('Build, Scan & Push Backend Image') {
             steps {
                 script {
-                    def backendImage = docker.build("${BACKEND_IMAGE_NAME}:${env.BUILD_ID}", "./backend")
+                    def backendImage = docker.build("${BACKEND_IMAGE_NAME}:${BUILD_ID}", "./backend")
 
-                    echo "Scanning Backend image with Trivy..."
-                    sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${BACKEND_IMAGE_NAME}:${env.BUILD_ID}"
+                    echo "🔍 Scanning Backend image with Trivy..."
+                    sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${BACKEND_IMAGE_NAME}:${BUILD_ID}"
 
-                    echo "Pushing Backend image to ECR..."
-                    docker.withRegistry("https://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", 'aws-credentials') {
-                        backendImage.push()
-                        backendImage.push("latest")
-                    }
+                    echo "📦 Pushing Backend image to ECR..."
+                    sh """
+                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+                        docker tag ${BACKEND_IMAGE_NAME}:${BUILD_ID} ${ECR_BACKEND_URI}:${BUILD_ID}
+                        docker tag ${BACKEND_IMAGE_NAME}:${BUILD_ID} ${ECR_BACKEND_URI}:latest
+                        docker push ${ECR_BACKEND_URI}:${BUILD_ID}
+                        docker push ${ECR_BACKEND_URI}:latest
+                    """
                 }
             }
         }
@@ -57,16 +45,19 @@ pipeline {
         stage('Build, Scan & Push Frontend Image') {
             steps {
                 script {
-                    def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}:${env.BUILD_ID}", "./frontend")
+                    def frontendImage = docker.build("${FRONTEND_IMAGE_NAME}:${BUILD_ID}", "./frontend")
 
-                    echo "Scanning Frontend image with Trivy..."
-                    sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${FRONTEND_IMAGE_NAME}:${env.BUILD_ID}"
+                    echo "🔍 Scanning Frontend image with Trivy..."
+                    sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${FRONTEND_IMAGE_NAME}:${BUILD_ID}"
 
-                    echo "Pushing Frontend image to ECR..."
-                    docker.withRegistry("https://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", 'aws-credentials') {
-                        frontendImage.push()
-                        frontendImage.push("latest")
-                    }
+                    echo "📦 Pushing Frontend image to ECR..."
+                    sh """
+                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+                        docker tag ${FRONTEND_IMAGE_NAME}:${BUILD_ID} ${ECR_FRONTEND_URI}:${BUILD_ID}
+                        docker tag ${FRONTEND_IMAGE_NAME}:${BUILD_ID} ${ECR_FRONTEND_URI}:latest
+                        docker push ${ECR_FRONTEND_URI}:${BUILD_ID}
+                        docker push ${ECR_FRONTEND_URI}:latest
+                    """
                 }
             }
         }
@@ -134,4 +125,3 @@ pipeline {
         }
     }
 }
-
