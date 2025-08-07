@@ -10,6 +10,9 @@ pipeline {
 
         ECR_BACKEND_URI     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_IMAGE_NAME}"
         ECR_FRONTEND_URI    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_IMAGE_NAME}"
+
+        BACKEND_GIT_REPO    = "https://github.com/techprabhu007/E-shop.git"
+        FRONTEND_GIT_REPO   = "https://github.com/techprabhu007/E-shop.git"
     }
 
     stages {
@@ -17,21 +20,13 @@ pipeline {
             steps {
                 script {
                     def backendCmd = """
-                        cd /home/ubuntu/backend || git clone https://github.com/techprabhu007/E-shop.git backend && cd backend/backend;
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com;
+                        cd /home/ubuntu/backend || (git clone ${BACKEND_GIT_REPO} backend && cd backend/backend);
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_BACKEND_URI};
                         docker build -t ${ECR_BACKEND_URI}:latest .;
                         docker push ${ECR_BACKEND_URI}:latest;
                     """
 
-                    sh """
-                        aws ssm send-command \
-                          --document-name "AWS-RunShellScript" \
-                          --targets "Key=tag:Role,Values=AppServer" \
-                          --parameters commands=["${backendCmd.replaceAll('"', '\\\\\\"')}"] \
-                          --region ${AWS_REGION} \
-                          --comment "Build and push backend" \
-                          --output text
-                    """
+                    sendSSMCommand('AppServer', backendCmd, 'Build and push backend')
                 }
             }
         }
@@ -40,21 +35,13 @@ pipeline {
             steps {
                 script {
                     def frontendCmd = """
-                        cd /home/ubuntu/frontend || git clone https://github.com/techprabhu007/E-shop.git frontend && cd frontend/frontend;
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com;
+                        cd /home/ubuntu/frontend || (git clone ${FRONTEND_GIT_REPO} frontend && cd frontend/frontend);
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_FRONTEND_URI};
                         docker build -t ${ECR_FRONTEND_URI}:latest .;
                         docker push ${ECR_FRONTEND_URI}:latest;
                     """
 
-                    sh """
-                        aws ssm send-command \
-                          --document-name "AWS-RunShellScript" \
-                          --targets "Key=tag:Role,Values=WebServer" \
-                          --parameters commands=["${frontendCmd.replaceAll('"', '\\\\\\"')}"] \
-                          --region ${AWS_REGION} \
-                          --comment "Build and push frontend" \
-                          --output text
-                    """
+                    sendSSMCommand('WebServer', frontendCmd, 'Build and push frontend')
                 }
             }
         }
@@ -63,26 +50,18 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'mongo-db-uri', variable: 'MONGO_URI')]) {
                     script {
-                        def deployBackend = """
-                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com &&
-                            docker pull ${ECR_BACKEND_URI}:latest &&
-                            docker stop ${BACKEND_IMAGE_NAME} || true &&
-                            docker rm ${BACKEND_IMAGE_NAME} || true &&
+                        def deployBackendCmd = """
+                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_BACKEND_URI};
+                            docker pull ${ECR_BACKEND_URI}:latest;
+                            docker stop ${BACKEND_IMAGE_NAME} || true;
+                            docker rm ${BACKEND_IMAGE_NAME} || true;
                             docker run -d --name ${BACKEND_IMAGE_NAME} --restart always \\
                                 -p 5000:5000 \\
                                 -e MONGO_URI='${MONGO_URI}' \\
-                                ${ECR_BACKEND_URI}:latest
+                                ${ECR_BACKEND_URI}:latest;
                         """
 
-                        sh """
-                            aws ssm send-command \
-                              --document-name "AWS-RunShellScript" \
-                              --targets "Key=tag:Role,Values=AppServer" \
-                              --parameters commands=["${deployBackend.replaceAll('"', '\\\\\\"')}"] \
-                              --region ${AWS_REGION} \
-                              --comment "Deploy backend container" \
-                              --output text
-                        """
+                        sendSSMCommand('AppServer', deployBackendCmd, 'Deploy backend container')
                     }
                 }
             }
@@ -91,25 +70,17 @@ pipeline {
         stage('Deploy Frontend on EC2') {
             steps {
                 script {
-                    def deployFrontend = """
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com &&
-                        docker pull ${ECR_FRONTEND_URI}:latest &&
-                        docker stop ${FRONTEND_IMAGE_NAME} || true &&
-                        docker rm ${FRONTEND_IMAGE_NAME} || true &&
+                    def deployFrontendCmd = """
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_FRONTEND_URI};
+                        docker pull ${ECR_FRONTEND_URI}:latest;
+                        docker stop ${FRONTEND_IMAGE_NAME} || true;
+                        docker rm ${FRONTEND_IMAGE_NAME} || true;
                         docker run -d --name ${FRONTEND_IMAGE_NAME} --restart always \\
                             -p 80:80 \\
-                            ${ECR_FRONTEND_URI}:latest
+                            ${ECR_FRONTEND_URI}:latest;
                     """
 
-                    sh """
-                        aws ssm send-command \
-                          --document-name "AWS-RunShellScript" \
-                          --targets "Key=tag:Role,Values=WebServer" \
-                          --parameters commands=["${deployFrontend.replaceAll('"', '\\\\\\"')}"] \
-                          --region ${AWS_REGION} \
-                          --comment "Deploy frontend container" \
-                          --output text
-                    """
+                    sendSSMCommand('WebServer', deployFrontendCmd, 'Deploy frontend container')
                 }
             }
         }
@@ -117,8 +88,24 @@ pipeline {
 
     post {
         always {
-            echo '✅ Pipeline completed successfully.'
+            echo '✅ Pipeline completed.'
             cleanWs()
         }
     }
+}
+
+/**
+ * Sends an AWS SSM command using a tag key: Role
+ */
+def sendSSMCommand(roleTag, shellCommand, comment) {
+    def escapedCommand = shellCommand.replaceAll('"', '\\\\\\"')
+    sh """
+        aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --targets "Key=tag:Role,Values=${roleTag}" \
+          --parameters commands=["${escapedCommand}"] \
+          --region ${env.AWS_REGION} \
+          --comment "${comment}" \
+          --output text
+    """
 }
