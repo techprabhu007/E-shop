@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         AWS_PROFILE = 'personal-sso'
-        AWS_REGION  = 'ap-south-1'
+        AWS_REGION  = 'us-west-2'
         ACCOUNT_ID  = sh(script: "aws sts get-caller-identity --query Account --output text --profile ${AWS_PROFILE}", returnStdout: true).trim()
     }
     stages {
